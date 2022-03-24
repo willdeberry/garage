@@ -1,0 +1,71 @@
+#!/usr/bin/env python3
+
+
+from aiohttp import ClientSession
+import argparse
+import asyncio
+from dotenv import load_dotenv
+import os
+import pymyq
+
+
+load_dotenv()
+
+
+async def open(device):
+    print('Attempting to open garage')
+    if device.state != 'closed':
+        print('Garage already opened')
+        return
+
+    await device.open(wait_for_state = False)
+
+
+async def close(device):
+    print('Attempting to close garage')
+    if device.state != 'open':
+        print('Garage already closed')
+        return
+
+    await device.close(wait_for_state = False)
+
+
+def status(device):
+    print(device.state)
+
+
+async def main(action):
+    async with ClientSession() as websession:
+        username = os.environ.get('USERNAME', None)
+        password = os.environ.get('PASSWORD', None)
+        myq = await pymyq.login(username, password, websession)
+        covers = myq.covers
+        if len(covers.keys()) == 1:
+            device = next(iter(covers.values()))
+
+        if action == 'open':
+            await open(device)
+        elif action == 'close':
+            await close(device)
+        elif action == 'status':
+            status(device)
+        else:
+            print(f'Unknown action ({action})')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description = 'Garage Door Management')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-o', '--open', action = 'store_true', help = 'Sends the open command to garage')
+    group.add_argument('-c', '--close', action = 'store_true', help = 'Sends the close command to garage')
+    group.add_argument('-s', '--status', action = 'store_true', help = 'Returns the current status of the garage')
+    args = parser.parse_args()
+
+    if args.open:
+        action = 'open'
+    if args.close:
+        action = 'close'
+    if args.status:
+        action = 'status'
+
+    asyncio.get_event_loop().run_until_complete(main(action))
