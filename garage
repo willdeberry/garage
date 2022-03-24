@@ -4,9 +4,13 @@
 from aiohttp import ClientSession
 import argparse
 import asyncio
+from datetime import datetime
+import json
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 import pymyq
+from time import sleep
 
 
 load_dotenv()
@@ -34,6 +38,30 @@ def status(device):
     print(device.state)
 
 
+async def manage(device):
+    while true:
+        now = datetime.now()
+        current_time = now.strftime('%H:%M')
+
+        with open('schedule.json', 'r') as f:
+            schedule = json.loads(f.read())
+
+        enabled = schedule['enabled']
+
+        if not enabled:
+            continue
+
+        open_times = schedule['open']
+        close_times = schedule['close']
+
+        if current_time in open_times:
+            await open(device)
+        elif current_time in close_times:
+            await close(device)
+
+        sleep(60)
+
+
 async def main(action):
     async with ClientSession() as websession:
         username = os.environ.get('USERNAME', None)
@@ -49,6 +77,8 @@ async def main(action):
             await close(device)
         elif action == 'status':
             status(device)
+        elif action == 'loop':
+            await manage(device)
         else:
             print(f'Unknown action ({action})')
 
@@ -59,6 +89,7 @@ if __name__ == '__main__':
     group.add_argument('-o', '--open', action = 'store_true', help = 'Sends the open command to garage')
     group.add_argument('-c', '--close', action = 'store_true', help = 'Sends the close command to garage')
     group.add_argument('-s', '--status', action = 'store_true', help = 'Returns the current status of the garage')
+    group.add_argument('-l', '--loop', action = 'store_true', help = 'Starts a continuous loop to manage the garage')
     args = parser.parse_args()
 
     if args.open:
@@ -67,5 +98,7 @@ if __name__ == '__main__':
         action = 'close'
     if args.status:
         action = 'status'
+    if args.loop:
+        action = 'loop'
 
     asyncio.get_event_loop().run_until_complete(main(action))
