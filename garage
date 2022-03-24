@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 
+import aiofiles
 from aiohttp import ClientSession
 import argparse
 import asyncio
@@ -14,6 +15,14 @@ from time import sleep
 
 
 load_dotenv()
+
+
+async def login(websession):
+    username = os.environ.get('USERNAME', None)
+    password = os.environ.get('PASSWORD', None)
+    myq = await pymyq.login(username, password, websession)
+
+    return myq
 
 
 async def open(device):
@@ -38,17 +47,20 @@ def status(device):
     print(device.state)
 
 
-async def manage(device):
-    while true:
+async def manage(websession):
+    while True:
+        myq = await login(websession)
+        covers = myq.covers
+        if len(covers.keys()) == 1:
+            device = next(iter(covers.values()))
+
         now = datetime.now()
         current_time = now.strftime('%H:%M')
 
-        with open('schedule.json', 'r') as f:
-            schedule = json.loads(f.read())
+        async with aiofiles.open('schedule.json') as f:
+            schedule = json.loads(await f.read())
 
-        enabled = schedule['enabled']
-
-        if not enabled:
+        if not schedule['enabled']:
             continue
 
         open_times = schedule['open']
@@ -64,9 +76,7 @@ async def manage(device):
 
 async def main(action):
     async with ClientSession() as websession:
-        username = os.environ.get('USERNAME', None)
-        password = os.environ.get('PASSWORD', None)
-        myq = await pymyq.login(username, password, websession)
+        myq = await login(websession)
         covers = myq.covers
         if len(covers.keys()) == 1:
             device = next(iter(covers.values()))
@@ -77,8 +87,8 @@ async def main(action):
             await close(device)
         elif action == 'status':
             status(device)
-        elif action == 'loop':
-            await manage(device)
+        elif action == 'manage':
+            await manage(websession)
         else:
             print(f'Unknown action ({action})')
 
@@ -89,7 +99,7 @@ if __name__ == '__main__':
     group.add_argument('-o', '--open', action = 'store_true', help = 'Sends the open command to garage')
     group.add_argument('-c', '--close', action = 'store_true', help = 'Sends the close command to garage')
     group.add_argument('-s', '--status', action = 'store_true', help = 'Returns the current status of the garage')
-    group.add_argument('-l', '--loop', action = 'store_true', help = 'Starts a continuous loop to manage the garage')
+    group.add_argument('-m', '--manage', action = 'store_true', help = 'Starts a continuous loop to manage the garage')
     args = parser.parse_args()
 
     if args.open:
@@ -98,7 +108,7 @@ if __name__ == '__main__':
         action = 'close'
     if args.status:
         action = 'status'
-    if args.loop:
-        action = 'loop'
+    if args.manage:
+        action = 'manage'
 
     asyncio.get_event_loop().run_until_complete(main(action))
