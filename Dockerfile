@@ -12,4 +12,4 @@ COPY garage /usr/bin/garage/garage
 COPY .env /usr/bin/garage/.env
 COPY schedule.json /usr/bin/garage/schedule.json
 
-CMD [ "python3", "/usr/bin/garage/garage", "--manage" ]
+ENTRYPOINT [ "/usr/bin/garage/garage", "--manage" ]
