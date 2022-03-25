@@ -57,7 +57,9 @@ async def manage(websession):
         now = datetime.now()
         current_time = now.strftime('%H:%M')
 
-        async with aiofiles.open('schedule.json') as f:
+        working_dir = os.path.dirname(os.path.realpath(__file__))
+        schedule_path = '/'.join([working_dir, 'schedule.json'])
+        async with aiofiles.open(schedule_path) as f:
             schedule = json.loads(await f.read())
 
         if not schedule['enabled']:
