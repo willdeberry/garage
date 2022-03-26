@@ -9,5 +9,12 @@
         "08:40",
         "14:50",
         "16:30"
+    ],
+    "days": [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday"
     ]
 }

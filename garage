@@ -54,8 +54,8 @@ async def manage(websession):
         if len(covers.keys()) == 1:
             device = next(iter(covers.values()))
 
-        now = datetime.now()
-        current_time = now.strftime('%H:%M')
+        current_day = datetime.today().strftime('%A')
+        current_time = datetime.now().strftime('%H:%M')
 
         working_dir = os.path.dirname(os.path.realpath(__file__))
         schedule_path = '/'.join([working_dir, 'schedule.json'])
@@ -65,12 +65,13 @@ async def manage(websession):
         if not schedule['enabled']:
             continue
 
+        days = schedule['days']
         open_times = schedule['open']
         close_times = schedule['close']
 
-        if current_time in open_times:
+        if current_time in open_times and current_day in days:
             await open(device)
-        elif current_time in close_times:
+        elif current_time in close_times and current_day in days:
             await close(device)
 
         sleep(60)
