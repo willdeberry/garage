@@ -12,9 +12,14 @@ import os
 from pathlib import Path
 import pymyq
 from time import sleep
+import sys
 
 
 load_dotenv()
+
+
+def log(message):
+    print(message, file = sys.stdout)
 
 
 async def login(websession):
@@ -26,39 +31,43 @@ async def login(websession):
 
 
 async def open(device):
-    print('Attempting to open garage')
+    log('Attempting to open garage')
     if device.state != 'closed':
-        print('Garage already opened')
+        log('Garage already opened')
         return
 
     await device.open(wait_for_state = False)
 
 
 async def close(device):
-    print('Attempting to close garage')
+    log('Attempting to close garage')
     if device.state != 'open':
-        print('Garage already closed')
+        log('Garage already closed')
         return
 
     await device.close(wait_for_state = False)
 
 
 def status(device):
-    print(device.state)
+    log(device.state)
 
 
 async def manage(websession):
     while True:
+        log('Starting garage automation process...')
+        sleep(60)
+
         myq = await login(websession)
         covers = myq.covers
+
         if len(covers.keys()) == 1:
             device = next(iter(covers.values()))
 
         current_day = datetime.today().strftime('%A')
         current_time = datetime.now().strftime('%H:%M')
-
         working_dir = os.path.dirname(os.path.realpath(__file__))
         schedule_path = '/'.join([working_dir, 'schedule.json'])
+
         async with aiofiles.open(schedule_path) as f:
             schedule = json.loads(await f.read())
 
@@ -69,31 +78,37 @@ async def manage(websession):
         open_times = schedule['open']
         close_times = schedule['close']
 
-        if current_time in open_times and current_day in days:
-            await open(device)
-        elif current_time in close_times and current_day in days:
-            await close(device)
+        if not current_day in days:
+            continue
 
-        sleep(60)
+        if current_time in open_times:
+            await open(device)
+            continue
+
+        if current_time in close_times:
+            await close(device)
+            continue
 
 
 async def main(action):
     async with ClientSession() as websession:
         myq = await login(websession)
         covers = myq.covers
+
         if len(covers.keys()) == 1:
             device = next(iter(covers.values()))
 
-        if action == 'open':
-            await open(device)
-        elif action == 'close':
-            await close(device)
-        elif action == 'status':
-            status(device)
-        elif action == 'manage':
-            await manage(websession)
-        else:
-            print(f'Unknown action ({action})')
+        match action:
+            case 'open':
+                await open(device)
+            case 'close':
+                await close(device)
+            case 'status':
+                status(device)
+            case 'manage':
+                await manage(websession)
+            case _:
+                log(f'Unknown action ({action})')
 
 
 if __name__ == '__main__':
